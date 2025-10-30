@@ -1,0 +1,68 @@
+    # dependencies
+    node_modules/
+    backend/node_modules/
+    frontend/node_modules/
+
+    # builds
+    frontend/build/
+    dist/
+    *.log
+
+    # env
+    .env
+    backend/.env
+    frontend/.env
+    ```
+3. Click **File > Save As…**
+4. In the Save dialog:
+    - File name: `.gitignore`  **(make sure there is no extension like `.txt`!)**
+    - Save as type: *All Files*
+    - Location:  
+      `C:\Users\OM PATIL\OneDrive\Desktop\dbms project`
+5. Click Save.
+
+---
+
+### **B. Using Command Line (PowerShell/Command Prompt)**
+In your project root terminal, paste this command:
+
+```powershell
+@"
+# dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# builds
+frontend/build/
+dist/
+*.log
+
+# env
+.env
+backend/.env
+frontend/.env
+"@ | Out-File -Encoding utf8 .gitignore
+```
+
+---
+
+**Afterwards:**  
+- You should see a `.gitignore` file in your project root.
+- Confirm it by running:
+    ```
+    dir .gitignore
+    ```
+    or by viewing the folder in File Explorer.
+
+---
+
+**Now you can continue with:**
+```bash
+git add .
+git commit -m "Initial commit: Aadhaar-Linked Travel Booking System"
+git remote add origin <YOUR-GITHUB-REPO-URL>
+git push -u origin main
+```
+
+If you need screenshots or further help, just let me know!

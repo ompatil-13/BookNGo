@@ -1,0 +1,16 @@
+{
+  "name": "aadhaar-travel",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Aadhaar-Linked Travel Ticket Booking System",
+  "scripts": {
+    "start": "npm run start --prefix backend",
+    "server": "npm run dev --prefix backend",
+    "client": "npm start --prefix frontend",
+    "dev": "concurrently \"npm:server\" \"npm:client\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
+
