@@ -15,6 +15,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.send("✅ BookNGo Backend API is running successfully!");
+});
+
 const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/travelDB";
 mongoose
   .connect(mongoUri)
