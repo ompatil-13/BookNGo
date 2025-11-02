@@ -3,17 +3,17 @@ import Seat from "../models/Seat.js";
 
 const router = express.Router();
 
-// Number of seats per travel mode
+// Define number of seats per mode
 const seatConfig = {
   Flight: 120,
   Bus: 60,
   Train: 200,
 };
 
-// Utility to generate seat positions (rows & columns)
+// Function to generate seats
 function generateSeats(count, mode) {
   const seats = [];
-  const columns = ["A", "B", "C", "D", "E", "F"]; // up to 6 per row
+  const columns = ["A", "B", "C", "D", "E", "F"]; // up to 6 columns per row
   let row = 1;
   let colIndex = 0;
 
@@ -24,6 +24,7 @@ function generateSeats(count, mode) {
       row,
       column,
       mode_of_travel: mode,
+      isBooked: false,
     });
 
     colIndex++;
@@ -35,27 +36,24 @@ function generateSeats(count, mode) {
   return seats;
 }
 
-// 🔹 Initialize seats for all modes (run once)
+// ✅ Re-initialize all seats (deletes old ones first)
 router.post("/initialize", async (req, res) => {
   try {
     for (const [mode, count] of Object.entries(seatConfig)) {
-      const existing = await Seat.find({ mode_of_travel: mode });
-      if (existing.length === 0) {
-        const seats = generateSeats(count, mode);
-        await Seat.insertMany(seats);
-        console.log(`${count} ${mode} seats initialized`);
-      } else {
-        console.log(`${mode} seats already initialized`);
-      }
+      await Seat.deleteMany({ mode_of_travel: mode }); // remove old data
+      const seats = generateSeats(count, mode);
+      await Seat.insertMany(seats);
+      console.log(`✅ ${count} ${mode} seats reinitialized`);
     }
-    res.json({ message: "✅ Seats initialized for all modes!" });
+
+    res.json({ message: "✅ Seats reinitialized successfully for all modes!" });
   } catch (err) {
     console.error("Seat initialization error:", err);
     res.status(500).json({ message: "Error initializing seats" });
   }
 });
 
-// 🔹 Fetch seats by travel mode
+// ✅ Get seats by mode
 router.get("/:mode", async (req, res) => {
   try {
     const mode = req.params.mode;
@@ -68,4 +66,3 @@ router.get("/:mode", async (req, res) => {
 });
 
 export default router;
-
