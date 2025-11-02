@@ -1,143 +1,186 @@
 import React, { useEffect, useState } from "react";
-import { api, getUser, getToken } from "../api";
-import SeatSelector from "../components/SeatSelector";
+import { api } from "../api";
 
-export default function BookTicket() {
-  const loggedUser = getUser();
-  const token = getToken();
-  const [profile, setProfile] = useState(null);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [selectedSeat, setSelectedSeat] = useState("");
-  const [refreshSeats, setRefreshSeats] = useState(0);
-  const [form, setForm] = useState({
-    aadhaar_no: loggedUser?.aadhaar_no || "",
-    mode_of_travel: "",
-    travel_from: "",
-    travel_to: "",
-    date: "",
-    seat_no: ""
-  });
+export default function SeatSelector({
+  mode_of_travel,
+  seatLayout,
+  onSeatSelect,
+  selectedSeat,
+  disabled,
+  refreshTrigger,
+}) {
+  const [seats, setSeats] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const { data } = await api.get(`/api/users/${form.aadhaar_no}`);
-        setProfile(data);
-      } catch (err) {
-        setProfile(null);
-      }
-    };
-    if (form.aadhaar_no) fetchProfile();
-  }, [form.aadhaar_no]);
-
-  // Reset seat selection when mode of travel changes
-  useEffect(() => {
-    setSelectedSeat("");
-    setForm(prev => ({ ...prev, seat_no: "" }));
-  }, [form.mode_of_travel]);
-
-  const onChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSeatSelect = (seatNo) => {
-    setSelectedSeat(seatNo);
-    setForm({ ...form, seat_no: seatNo });
-  };
-
-  const onSubmit = async (e) => {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-    
-    if (!form.seat_no) {
-      setError("Please select a seat");
-      return;
-    }
-
+  // Fetch seats from backend
+  const fetchSeats = async () => {
+    if (!mode_of_travel) return;
+    setLoading(true);
     try {
-      const { data } = await api.post("/api/tickets/book", form, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessage(`Ticket booked! ID: ${data.ticket_id}`);
-      // Reset form and refresh seat data
-      setForm({ ...form, mode_of_travel: "", travel_from: "", travel_to: "", date: "", seat_no: "" });
-      setSelectedSeat("");
-      // Refresh seats by triggering SeatSelector refresh
-      setRefreshSeats(prev => prev + 1);
+      const { data } = await api.get(`/api/seats/${mode_of_travel}`);
+      setSeats(data);
     } catch (err) {
-      const errorMsg = err.response?.data?.message || "Booking failed";
-      setError(errorMsg);
-      // If seat was already booked, refresh seat data
-      if (err.response?.status === 409) {
-        setTimeout(() => {
-          setRefreshSeats(prev => prev + 1);
-          setSelectedSeat("");
-          setForm(prev => ({ ...prev, seat_no: "" }));
-        }, 1000);
-      }
+      console.error("Failed to load seats:", err);
+      setSeats([]);
+    } finally {
+      setLoading(false);
     }
   };
+
+  // Fetch whenever mode or refresh changes
+  useEffect(() => {
+    fetchSeats();
+  }, [mode_of_travel, refreshTrigger]);
+
+  // Generate seats dynamically if backend not initialized
+  const generateSeats = () => {
+    const rows = seatLayout?.rows || 10;
+    const cols = seatLayout?.cols || 4;
+    const seatLetters = ["A", "B", "C", "D"].slice(0, cols);
+    const generated = [];
+
+    for (let i = 1; i <= rows; i++) {
+      seatLetters.forEach((letter) => {
+        const seatNo = `${i}${letter}`;
+        const backendSeat = seats.find((s) => s.seat_no === seatNo);
+        generated.push({
+          seat_no: seatNo,
+          isBooked: backendSeat ? backendSeat.isBooked : false,
+        });
+      });
+    }
+    return generated;
+  };
+
+  const displayedSeats = generateSeats();
+
+  if (loading)
+    return <p style={{ textAlign: "center" }}>Loading seat map...</p>;
 
   return (
-    <div className="form-wrapper">
-      <h2>Book Ticket</h2>
-      {message && <p className="alert success">{message}</p>}
-      {error && <p className="alert error">{error}</p>}
-
-      <div className="profile-box">
-        <h3>Aadhaar Profile</h3>
-        <div className="grid-2">
-          <div>
-            <label>Aadhaar No</label>
-            <input name="aadhaar_no" value={form.aadhaar_no} onChange={onChange} placeholder="Enter Aadhaar No" />
-          </div>
-          <div>
-            <label>Name</label>
-            <input value={profile?.name || ""} readOnly />
-          </div>
-          <div>
-            <label>Gender</label>
-            <input value={profile?.gender || ""} readOnly />
-          </div>
-          <div>
-            <label>Contact</label>
-            <input value={profile?.contact || ""} readOnly />
-          </div>
-        </div>
+    <div className="seat-selector">
+      <div className="seat-legend">
+        <span>
+          <span className="seat available"></span> Available
+        </span>
+        <span>
+          <span className="seat booked"></span> Booked
+        </span>
+        <span>
+          <span className="seat selected"></span> Selected
+        </span>
       </div>
 
-      <form onSubmit={onSubmit} className="form">
-        <select name="mode_of_travel" value={form.mode_of_travel} onChange={onChange} required>
-          <option value="">Mode of Travel</option>
-          <option value="Flight">Flight</option>
-          <option value="Bus">Bus</option>
-          <option value="Train">Train</option>
-        </select>
-        <input name="travel_from" placeholder="From" value={form.travel_from} onChange={onChange} required />
-        <input name="travel_to" placeholder="To" value={form.travel_to} onChange={onChange} required />
-        <input type="date" name="date" value={form.date} onChange={onChange} required />
-        
-        {form.mode_of_travel && (
-          <SeatSelector
-            mode_of_travel={form.mode_of_travel}
-            onSeatSelect={handleSeatSelect}
-            selectedSeat={selectedSeat}
-            disabled={!form.travel_from || !form.travel_to || !form.date}
-            refreshTrigger={refreshSeats}
-          />
-        )}
-        
-        {!form.mode_of_travel && (
-          <p className="seat-hint">Please select a mode of travel to view available seats</p>
-        )}
-        
-        <button className="btn" type="submit" disabled={!form.seat_no}>
-          {form.seat_no ? `Book Seat ${form.seat_no}` : "Select a seat to continue"}
-        </button>
-      </form>
+      <div className="seat-grid">
+        {Array.from({ length: seatLayout?.rows || 10 }).map((_, rowIndex) => (
+          <div key={rowIndex} className="seat-row">
+            {["A", "B", "C", "D"]
+              .slice(0, seatLayout?.cols || 4)
+              .map((letter) => {
+                const seatNo = `${rowIndex + 1}${letter}`;
+                const seat = displayedSeats.find(
+                  (s) => s.seat_no === seatNo
+                );
+                const isBooked = seat?.isBooked;
+                const isSelected = selectedSeat === seatNo;
+
+                return (
+                  <button
+                    key={seatNo}
+                    className={`seat-btn ${
+                      isBooked
+                        ? "booked"
+                        : isSelected
+                        ? "selected"
+                        : "available"
+                    }`}
+                    onClick={() => !isBooked && !disabled && onSeatSelect(seatNo)}
+                    disabled={isBooked || disabled}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
+          </div>
+        ))}
+      </div>
+
+      <style jsx>{`
+        .seat-selector {
+          text-align: center;
+          margin-top: 1rem;
+        }
+
+        .seat-legend {
+          display: flex;
+          justify-content: center;
+          gap: 1.5rem;
+          margin-bottom: 1rem;
+          font-size: 0.9rem;
+        }
+
+        .seat {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border-radius: 4px;
+          margin-right: 5px;
+        }
+
+        .seat.available {
+          background-color: #4caf50;
+        }
+        .seat.booked {
+          background-color: #d9534f;
+        }
+        .seat.selected {
+          background-color: #2196f3;
+        }
+
+        .seat-grid {
+          display: inline-block;
+          padding: 10px;
+          border-radius: 8px;
+          background: #f9f9f9;
+        }
+
+        .seat-row {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 6px;
+        }
+
+        .seat-btn {
+          width: 40px;
+          height: 40px;
+          margin: 3px;
+          border: none;
+          border-radius: 6px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .seat-btn.available {
+          background-color: #4caf50;
+          color: white;
+        }
+
+        .seat-btn.available:hover {
+          background-color: #43a047;
+        }
+
+        .seat-btn.booked {
+          background-color: #d9534f;
+          color: white;
+          cursor: not-allowed;
+        }
+
+        .seat-btn.selected {
+          background-color: #2196f3;
+          color: white;
+        }
+      `}</style>
     </div>
   );
 }
-
