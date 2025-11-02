@@ -19,10 +19,11 @@ export default function BookTicket() {
     seat_no: ""
   });
 
+  // ✅ Fetch user profile using Aadhaar number
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data } = await api.get(/api/users/${form.aadhaar_no});
+        const { data } = await api.get(`/api/users/${form.aadhaar_no}`);
         setProfile(data);
       } catch (err) {
         setProfile(null);
@@ -31,7 +32,7 @@ export default function BookTicket() {
     if (form.aadhaar_no) fetchProfile();
   }, [form.aadhaar_no]);
 
-  // Reset seat selection when mode of travel changes
+  // ✅ Reset seat selection when mode changes
   useEffect(() => {
     setSelectedSeat("");
     setForm(prev => ({ ...prev, seat_no: "" }));
@@ -46,6 +47,7 @@ export default function BookTicket() {
     setForm({ ...form, seat_no: seatNo });
   };
 
+  // ✅ Submit booking
   const onSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -58,19 +60,18 @@ export default function BookTicket() {
 
     try {
       const { data } = await api.post("/api/tickets/book", form, {
-        headers: { Authorization: Bearer ${token} }
+        headers: { Authorization: `Bearer ${token}` }
       });
-      setMessage(Ticket booked! ID: ${data.ticket_id});
-      // Reset form and refresh seat data
+      setMessage(`🎟️ Ticket booked successfully! ID: ${data.ticket_id}`);
+      // Reset form & refresh seats
       setForm({ ...form, mode_of_travel: "", travel_from: "", travel_to: "", date: "", seat_no: "" });
       setSelectedSeat("");
-      // Refresh seats by triggering SeatSelector refresh
       setRefreshSeats(prev => prev + 1);
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Booking failed";
       setError(errorMsg);
-      // If seat was already booked, refresh seat data
       if (err.response?.status === 409) {
+        // Refresh seat layout if seat got booked by someone else
         setTimeout(() => {
           setRefreshSeats(prev => prev + 1);
           setSelectedSeat("");
@@ -91,7 +92,12 @@ export default function BookTicket() {
         <div className="grid-2">
           <div>
             <label>Aadhaar No</label>
-            <input name="aadhaar_no" value={form.aadhaar_no} onChange={onChange} placeholder="Enter Aadhaar No" />
+            <input
+              name="aadhaar_no"
+              value={form.aadhaar_no}
+              onChange={onChange}
+              placeholder="Enter Aadhaar No"
+            />
           </div>
           <div>
             <label>Name</label>
@@ -118,8 +124,8 @@ export default function BookTicket() {
         <input name="travel_from" placeholder="From" value={form.travel_from} onChange={onChange} required />
         <input name="travel_to" placeholder="To" value={form.travel_to} onChange={onChange} required />
         <input type="date" name="date" value={form.date} onChange={onChange} required />
-        
-        {form.mode_of_travel && (
+
+        {form.mode_of_travel ? (
           <SeatSelector
             mode_of_travel={form.mode_of_travel}
             onSeatSelect={handleSeatSelect}
@@ -127,17 +133,14 @@ export default function BookTicket() {
             disabled={!form.travel_from || !form.travel_to || !form.date}
             refreshTrigger={refreshSeats}
           />
-        )}
-        
-        {!form.mode_of_travel && (
+        ) : (
           <p className="seat-hint">Please select a mode of travel to view available seats</p>
         )}
-        
+
         <button className="btn" type="submit" disabled={!form.seat_no}>
-          {form.seat_no ? Book Seat ${form.seat_no} : "Select a seat to continue"}
+          {form.seat_no ? `Book Seat ${form.seat_no}` : "Select a seat to continue"}
         </button>
       </form>
     </div>
   );
 }
-
