@@ -110,3 +110,4 @@ Examples:
   db.seats.updateMany({}, { $set: { isBooked: false } })
   ```
 
+

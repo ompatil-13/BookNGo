@@ -11,10 +11,10 @@ import Seat from "./models/Seat.js"; // Import seat model
 
 const app = express();
 
-// ✅ Allow frontend from Vercel to access backend
+// CORS configuration - allow your frontend
 app.use(cors({
-  origin: ["https://book-n-go-ten.vercel.app"],
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  origin: process.env.FRONTEND_URL || "*", // Allow all origins in dev, set specific in production
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   credentials: true
 }));
 

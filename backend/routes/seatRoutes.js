@@ -3,68 +3,141 @@ import Seat from "../models/Seat.js";
 
 const router = express.Router();
 
-// Define number of seats per mode
+// Seat configuration: count and columns per mode
 const seatConfig = {
-  Flight: 120,
-  Bus: 60,
-  Train: 200,
+  Flight: { total: 120, columns: ["A", "B", "C", "D", "E", "F"] },
+  Bus: { total: 60, columns: ["A", "B", "C"] },
+  Train: { total: 200, columns: ["A", "B", "C", "D"] }
 };
 
-// Function to generate seats
-function generateSeats(count, mode) {
+// Function to generate seats for a specific mode
+function generateSeats(mode, count) {
+  const config = seatConfig[mode];
+  if (!config) throw new Error(`Invalid mode: ${mode}`);
+  
   const seats = [];
-  const columns = ["A", "B", "C", "D", "E", "F"]; // up to 6 columns
-  let row = 1;
-  let colIndex = 0;
+  const { columns } = config;
+  const seatsPerRow = columns.length;
+  const numRows = Math.ceil(count / seatsPerRow);
+  let seatIndex = 0;
 
-  for (let i = 1; i <= count; i++) {
-    const column = columns[colIndex];
-    const seatNo = `${mode[0]}${row}${column}`; // like F1A, B2D, T10F
-
-    seats.push({
-      seat_no: seatNo,
-      row,
-      column,
-      mode_of_travel: mode,
-      isBooked: false,
-    });
-
-    colIndex++;
-    if (colIndex >= columns.length) {
-      colIndex = 0;
-      row++;
+  for (let row = 1; row <= numRows; row++) {
+    for (let colIndex = 0; colIndex < columns.length; colIndex++) {
+      if (seatIndex >= count) break; // Stop if we've created all seats
+      
+      const column = columns[colIndex];
+      const prefix = mode[0]; // F for Flight, B for Bus, T for Train
+      const seat_no = `${prefix}${row}${column}`; // F1A, F1B, B1A, T1A, etc.
+      
+      seats.push({
+        seat_no,
+        mode_of_travel: mode,
+        row,
+        column,
+        isBooked: false
+      });
+      
+      seatIndex++;
     }
   }
-
+  
   return seats;
 }
 
-// ✅ Re-initialize all seats (delete old first)
+// POST /api/seats/initialize - Initialize all seats (deletes old and creates new)
 router.post("/initialize", async (req, res) => {
   try {
-    for (const [mode, count] of Object.entries(seatConfig)) {
-      await Seat.deleteMany({ mode_of_travel: mode });
-      const seats = generateSeats(count, mode);
-      await Seat.insertMany(seats);
-      console.log(`✅ ${count} ${mode} seats created`);
+    console.log("🔄 Starting seat initialization...");
+    
+    const results = {};
+    
+    for (const [mode, config] of Object.entries(seatConfig)) {
+      // Delete old seats for this mode
+      const deleteResult = await Seat.deleteMany({ mode_of_travel: mode });
+      console.log(`🗑️  Deleted ${deleteResult.deletedCount} existing ${mode} seats`);
+      
+      // Generate new seats using the exact count
+      const seats = generateSeats(mode, config.total);
+      
+      // Bulk insert
+      const insertResult = await Seat.insertMany(seats);
+      console.log(`✅ Created ${insertResult.length} ${mode} seats (${config.total} total, ${config.columns.length} columns per row)`);
+      
+      results[mode] = {
+        deleted: deleteResult.deletedCount,
+        created: insertResult.length,
+        expected: config.total,
+        columns: config.columns.length,
+        rows: Math.ceil(config.total / config.columns.length)
+      };
     }
-
-    res.json({ message: "✅ Seats reinitialized successfully for all modes!" });
+    
+    res.json({
+      message: "Seats initialized successfully for all modes",
+      results
+    });
   } catch (err) {
-    console.error("Seat initialization error:", err);
-    res.status(500).json({ message: "Error initializing seats" });
+    console.error("❌ Seat initialization error:", err);
+    res.status(500).json({
+      message: "Error initializing seats",
+      error: err.message
+    });
   }
 });
 
-// ✅ Get seats by mode
+// GET /api/seats/count - Get total seat counts per mode (MUST be before /:mode)
+router.get("/count", async (req, res) => {
+  try {
+    const counts = {};
+    
+    for (const mode of Object.keys(seatConfig)) {
+      const count = await Seat.countDocuments({ mode_of_travel: mode });
+      counts[mode] = count;
+    }
+    
+    res.json(counts);
+  } catch (err) {
+    console.error("❌ Seat count error:", err);
+    res.status(500).json({
+      message: "Error counting seats",
+      error: err.message
+    });
+  }
+});
+
+// GET /api/seats - Get all seats (optional, for debugging - MUST be before /:mode)
+router.get("/", async (req, res) => {
+  try {
+    const { mode_of_travel } = req.query;
+    const query = mode_of_travel ? { mode_of_travel } : {};
+    const seats = await Seat.find(query).sort({ mode_of_travel: 1, row: 1, column: 1 });
+    res.json(seats);
+  } catch (err) {
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// GET /api/seats/:mode - Get all seats for a specific mode (MUST be last)
 router.get("/:mode", async (req, res) => {
   try {
     const mode = req.params.mode;
-    const seats = await Seat.find({ mode_of_travel: mode }).sort({ row: 1, column: 1 });
-    res.json(seats);
+    
+    if (!seatConfig[mode]) {
+      return res.status(400).json({ message: `Invalid mode: ${mode}. Use Flight, Bus, or Train` });
+    }
+    
+    const seats = await Seat.find({ mode_of_travel: mode })
+      .sort({ row: 1, column: 1 });
+    
+    console.log(`📋 Fetched ${seats.length} seats for ${mode}`);
+    
+    res.json(seats); // Return array directly for frontend compatibility
   } catch (err) {
-    console.error("Seat fetch error:", err);
-    res.status(500).json({ message: "Error fetching seats" });
+    console.error("❌ Seat fetch error:", err);
+    res.status(500).json({
+      message: "Error fetching seats",
+      error: err.message
+    });
   }
 });
 
