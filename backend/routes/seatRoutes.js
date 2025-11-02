@@ -10,17 +10,22 @@ const seatConfig = {
   Train: 200,
 };
 
+// Columns pattern
+const columns = ["A", "B", "C", "D", "E", "F"]; // 6 per row
+
 // Function to generate seats dynamically
 function generateSeats(count, mode) {
   const seats = [];
-  const columns = ["A", "B", "C", "D", "E", "F"]; // 6 seats per row
+  const prefix = mode[0].toUpperCase(); // F, B, or T
   let row = 1;
   let colIndex = 0;
 
   for (let i = 1; i <= count; i++) {
     const column = columns[colIndex];
+    const seat_no = `${prefix}-${row}${column}`;
+
     seats.push({
-      seat_no: `${row}${column}`,
+      seat_no,
       row,
       column,
       mode_of_travel: mode,
@@ -33,6 +38,7 @@ function generateSeats(count, mode) {
       row++;
     }
   }
+
   return seats;
 }
 
