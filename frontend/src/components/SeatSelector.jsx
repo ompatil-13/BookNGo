@@ -11,12 +11,14 @@ export default function SeatSelector({ mode_of_travel, onSeatSelect, selectedSea
     if (mode_of_travel) {
       // Reset seats when mode changes
       setSeats([]);
+      setLoading(true);
       if (onSeatSelect) onSeatSelect(""); // Clear selection when mode changes
       fetchSeats();
     } else {
       setSeats([]);
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode_of_travel, refreshTrigger]);
 
   const fetchSeats = async () => {
@@ -96,7 +98,12 @@ export default function SeatSelector({ mode_of_travel, onSeatSelect, selectedSea
       </div>
 
       <div className="seat-info">
-        <p><strong>{mode_of_travel}:</strong> {seats.length} seats ({rows.length} rows × {expectedColumns.length} columns per row)</p>
+        <p>
+          <strong>{mode_of_travel}:</strong> {seats.length} seats 
+          <span style={{ display: 'block', marginTop: '0.25rem', fontSize: '0.9rem', color: '#666' }}>
+            Layout: {rows.length} rows × {expectedColumns.length} columns ({expectedColumns.join(', ')})
+          </span>
+        </p>
       </div>
 
       <div className="seat-grid">

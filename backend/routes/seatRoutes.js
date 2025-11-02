@@ -61,14 +61,15 @@ router.post("/initialize", async (req, res) => {
       
       // Bulk insert
       const insertResult = await Seat.insertMany(seats);
-      console.log(`✅ Created ${insertResult.length} ${mode} seats (${config.total} total, ${config.columns.length} columns per row)`);
+      const numRows = Math.ceil(config.total / config.columns.length);
+      console.log(`✅ Created ${insertResult.length} ${mode} seats: ${numRows} rows × ${config.columns.length} columns (${config.total} total)`);
       
       results[mode] = {
         deleted: deleteResult.deletedCount,
         created: insertResult.length,
         expected: config.total,
         columns: config.columns.length,
-        rows: Math.ceil(config.total / config.columns.length)
+        rows: numRows
       };
     }
     
