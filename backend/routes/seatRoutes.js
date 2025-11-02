@@ -3,20 +3,17 @@ import Seat from "../models/Seat.js";
 
 const router = express.Router();
 
-// Number of seats for each travel mode
+// Number of seats & columns per travel mode
 const seatConfig = {
-  Flight: 120,
-  Bus: 60,
-  Train: 200,
+  Flight: { count: 120, columns: ["A", "B", "C", "D", "E", "F"] }, // 6 per row
+  Bus: { count: 60, columns: ["A", "B", "C", "D"] },               // 4 per row
+  Train: { count: 200, columns: ["A", "B", "C", "D", "E", "F", "G", "H"] }, // 8 per row
 };
 
-// Columns pattern
-const columns = ["A", "B", "C", "D", "E", "F"]; // 6 per row
-
-// Function to generate seats dynamically
-function generateSeats(count, mode) {
+// Generate seats dynamically per mode
+function generateSeats(mode, count, columns) {
   const seats = [];
-  const prefix = mode[0].toUpperCase(); // F, B, or T
+  const prefix = mode[0].toUpperCase(); // F, B, T
   let row = 1;
   let colIndex = 0;
 
@@ -42,25 +39,25 @@ function generateSeats(count, mode) {
   return seats;
 }
 
-// ✅ Re-initialize all seats for all modes (DELETE + INSERT)
+// ✅ Initialize all modes
 router.get("/init", async (req, res) => {
   try {
     await Seat.deleteMany({});
 
-    for (const [mode, count] of Object.entries(seatConfig)) {
-      const seats = generateSeats(count, mode);
+    for (const [mode, { count, columns }] of Object.entries(seatConfig)) {
+      const seats = generateSeats(mode, count, columns);
       await Seat.insertMany(seats);
-      console.log(`✅ ${count} ${mode} seats initialized`);
+      console.log(`✅ Initialized ${count} ${mode} seats`);
     }
 
-    res.json({ message: "✅ Seats initialized successfully for Flight, Bus & Train" });
+    res.json({ message: "✅ Seats initialized for Flight, Bus & Train" });
   } catch (err) {
-    console.error("❌ Seat initialization error:", err);
+    console.error("❌ Initialization error:", err);
     res.status(500).json({ message: "Error initializing seats", error: err.message });
   }
 });
 
-// ✅ Get seats — supports query ?mode=Flight
+// ✅ Get seats by mode (example: /api/seats?mode=Bus)
 router.get("/", async (req, res) => {
   try {
     const { mode } = req.query;
@@ -68,7 +65,7 @@ router.get("/", async (req, res) => {
     const seats = await Seat.find(query).sort({ row: 1, column: 1 });
     res.json(seats);
   } catch (err) {
-    console.error("❌ Seat fetch error:", err);
+    console.error("❌ Fetch error:", err);
     res.status(500).json({ message: "Error fetching seats", error: err.message });
   }
 });
