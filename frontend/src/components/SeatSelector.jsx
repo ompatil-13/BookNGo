@@ -1,117 +1,187 @@
 import React, { useEffect, useState } from "react";
 import { api } from "../api";
-import "../styles/seatSelector.css";
 
-export default function SeatSelector({ mode_of_travel, onSeatSelect, selectedSeat, disabled = false, refreshTrigger = 0 }) {
+export default function SeatSelector({
+  mode_of_travel,
+  seatLayout,
+  onSeatSelect,
+  selectedSeat,
+  disabled,
+  refreshTrigger,
+}) {
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (mode_of_travel) {
-      fetchSeats();
-    }
-  }, [mode_of_travel, refreshTrigger]);
-
+  // Fetch seats from backend
   const fetchSeats = async () => {
+    if (!mode_of_travel) return;
     setLoading(true);
-    setError("");
     try {
-      const { data } = await api.get(`/api/seats?mode_of_travel=${mode_of_travel}`);
+      const { data } = await api.get(`/api/seats/${mode_of_travel}`);
       setSeats(data);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load seats");
+      console.error("Failed to load seats:", err);
+      setSeats([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSeatClick = (seat) => {
-    if (disabled || seat.isBooked) return;
-    onSeatSelect(seat.seat_no);
+  // Fetch whenever mode or refresh changes
+  useEffect(() => {
+    fetchSeats();
+  }, [mode_of_travel, refreshTrigger]);
+
+  // Generate seats dynamically if backend not initialized
+  const generateSeats = () => {
+    const rows = seatLayout?.rows || 10;
+    const cols = seatLayout?.cols || 4;
+    const seatLetters = ["A", "B", "C", "D"].slice(0, cols);
+    const generated = [];
+
+    for (let i = 1; i <= rows; i++) {
+      seatLetters.forEach((letter) => {
+        const seatNo = `${i}${letter}`;
+        const backendSeat = seats.find((s) => s.seat_no === seatNo);
+        generated.push({
+          seat_no: seatNo,
+          isBooked: backendSeat ? backendSeat.isBooked : false,
+        });
+      });
+    }
+    return generated;
   };
 
-  // Group seats by row
-  const groupedSeats = seats.reduce((acc, seat) => {
-    if (!acc[seat.row]) acc[seat.row] = [];
-    acc[seat.row].push(seat);
-    return acc;
-  }, {});
+  const displayedSeats = generateSeats();
 
-  const rows = Object.keys(groupedSeats).sort((a, b) => a - b);
-
-  if (loading) {
-    return <div className="seat-selector-loading">Loading seats...</div>;
-  }
-
-  if (error) {
-    return <div className="seat-selector-error">{error}</div>;
-  }
-
-  if (seats.length === 0) {
-    return (
-      <div className="seat-selector-empty">
-        <p>No seats available for {mode_of_travel}.</p>
-        <p className="text-muted">Seats need to be initialized first.</p>
-      </div>
-    );
-  }
+  if (loading)
+    return <p style={{ textAlign: "center" }}>Loading seat map...</p>;
 
   return (
-    <div className="seat-selector-container">
+    <div className="seat-selector">
       <div className="seat-legend">
-        <div className="legend-item">
-          <div className="seat-available"></div>
-          <span>Available</span>
-        </div>
-        <div className="legend-item">
-          <div className="seat-booked"></div>
-          <span>Booked</span>
-        </div>
-        <div className="legend-item">
-          <div className="seat-selected"></div>
-          <span>Selected</span>
-        </div>
+        <span>
+          <span className="seat available"></span> Available
+        </span>
+        <span>
+          <span className="seat booked"></span> Booked
+        </span>
+        <span>
+          <span className="seat selected"></span> Selected
+        </span>
       </div>
 
       <div className="seat-grid">
-        {rows.map((rowNum) => (
-          <div key={rowNum} className="seat-row">
-            <span className="row-label">{rowNum}</span>
-            <div className="seat-columns">
-              {groupedSeats[rowNum]
-                .sort((a, b) => a.column.localeCompare(b.column))
-                .map((seat) => {
-                  const isSelected = selectedSeat === seat.seat_no;
-                  const isBooked = seat.isBooked;
-                  let seatClass = "seat";
-                  if (isBooked) seatClass += " seat-booked";
-                  else if (isSelected) seatClass += " seat-selected";
-                  else seatClass += " seat-available";
+        {Array.from({ length: seatLayout?.rows || 10 }).map((_, rowIndex) => (
+          <div key={rowIndex} className="seat-row">
+            {["A", "B", "C", "D"]
+              .slice(0, seatLayout?.cols || 4)
+              .map((letter) => {
+                const seatNo = `${rowIndex + 1}${letter}`;
+                const seat = displayedSeats.find(
+                  (s) => s.seat_no === seatNo
+                );
+                const isBooked = seat?.isBooked;
+                const isSelected = selectedSeat === seatNo;
 
-                  return (
-                    <button
-                      key={seat.seat_no}
-                      type="button"
-                      className={seatClass}
-                      onClick={() => handleSeatClick(seat)}
-                      disabled={isBooked || disabled}
-                      title={isBooked ? "Already booked" : `Seat ${seat.seat_no}`}
-                    >
-                      {seat.column}
-                    </button>
-                  );
-                })}
-            </div>
+                return (
+                  <button
+                    key={seatNo}
+                    className={`seat-btn ${
+                      isBooked
+                        ? "booked"
+                        : isSelected
+                        ? "selected"
+                        : "available"
+                    }`}
+                    onClick={() => !isBooked && !disabled && onSeatSelect(seatNo)}
+                    disabled={isBooked || disabled}
+                  >
+                    {letter}
+                  </button>
+                );
+              })}
           </div>
         ))}
       </div>
 
-      {selectedSeat && (
-        <div className="selected-seat-info">
-          Selected Seat: <strong>{selectedSeat}</strong>
-        </div>
-      )}
+      <style jsx>{`
+        .seat-selector {
+          text-align: center;
+          margin-top: 1rem;
+        }
+
+        .seat-legend {
+          display: flex;
+          justify-content: center;
+          gap: 1.5rem;
+          margin-bottom: 1rem;
+          font-size: 0.9rem;
+        }
+
+        .seat {
+          display: inline-block;
+          width: 16px;
+          height: 16px;
+          border-radius: 4px;
+          margin-right: 5px;
+        }
+
+        .seat.available {
+          background-color: #4caf50;
+        }
+        .seat.booked {
+          background-color: #d9534f;
+        }
+        .seat.selected {
+          background-color: #2196f3;
+        }
+
+        .seat-grid {
+          display: inline-block;
+          padding: 10px;
+          border-radius: 8px;
+          background: #f9f9f9;
+        }
+
+        .seat-row {
+          display: flex;
+          justify-content: center;
+          margin-bottom: 6px;
+        }
+
+        .seat-btn {
+          width: 40px;
+          height: 40px;
+          margin: 3px;
+          border: none;
+          border-radius: 6px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .seat-btn.available {
+          background-color: #4caf50;
+          color: white;
+        }
+
+        .seat-btn.available:hover {
+          background-color: #43a047;
+        }
+
+        .seat-btn.booked {
+          background-color: #d9534f;
+          color: white;
+          cursor: not-allowed;
+        }
+
+        .seat-btn.selected {
+          background-color: #2196f3;
+          color: white;
+        }
+      `}</style>
     </div>
   );
 }
+
