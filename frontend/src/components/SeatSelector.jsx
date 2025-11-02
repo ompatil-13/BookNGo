@@ -1,45 +1,103 @@
 import React, { useEffect, useState } from "react";
-import { api } from "../api";
+import axios from "axios";
 
-export default function SeatSelector({ mode_of_travel, onSeatSelect, selectedSeat, disabled, refreshTrigger }) {
+const SeatSelector = ({ mode }) => {
   const [seats, setSeats] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedSeat, setSelectedSeat] = useState(null);
 
-  // Fetch seats by mode_of_travel
+  // Dynamic grid columns for each travel mode
+  const gridColumns = {
+    Flight: "grid-cols-6", // 6 seats per row
+    Bus: "grid-cols-4",    // 4 seats per row
+    Train: "grid-cols-8",  // 8 seats per row
+  };
+
   useEffect(() => {
-    const fetchSeats = async () => {
-      if (!mode_of_travel) return;
-      setLoading(true);
-      try {
-        // 🔥 fetch only seats for selected mode
-        const { data } = await api.get(`/api/seats?mode_of_travel=${mode_of_travel}`);
-        setSeats(data);
-      } catch (err) {
-        console.error("Failed to load seats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSeats();
-  }, [mode_of_travel, refreshTrigger]);
+    if (!mode) return;
+    setLoading(true);
 
-  if (loading) return <p>Loading seats...</p>;
-  if (!seats.length) return <p>No seats available for {mode_of_travel}</p>;
+    axios
+      .get(`https://bookngo-backend-rtyo.onrender.com/api/seats/${mode}`)
+      .then((res) => {
+        setSeats(res.data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Seat fetch error:", err);
+        setLoading(false);
+      });
+  }, [mode]);
+
+  const handleSeatSelect = (seat) => {
+    if (seat.isBooked) {
+      alert("❌ This seat is already booked!");
+      return;
+    }
+    setSelectedSeat(seat);
+  };
+
+  if (loading)
+    return <p className="text-center text-gray-600 mt-6">Loading seats...</p>;
 
   return (
-    <div className="seat-grid">
-      {seats.map((seat) => (
-        <button
-          key={`${seat.mode_of_travel}-${seat.seat_no}`}
-          className={`seat ${seat.isBooked ? "booked" : ""} ${
-            selectedSeat === seat.seat_no ? "selected" : ""
-          }`}
-          onClick={() => onSeatSelect(seat.seat_no)}
-          disabled={seat.isBooked || disabled}
-        >
-          {seat.seat_no}
-        </button>
-      ))}
+    <div className="p-4">
+      <h2 className="text-2xl font-bold text-center mb-4">
+        {mode} Seat Selection
+      </h2>
+
+      {/* Seat Legends */}
+      <div className="flex justify-center gap-4 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-gray-200 border rounded"></div>
+          <span className="text-sm">Available</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-green-500 border rounded"></div>
+          <span className="text-sm">Selected</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 bg-red-400 border rounded"></div>
+          <span className="text-sm">Booked</span>
+        </div>
+      </div>
+
+      {/* Seat Grid */}
+      <div
+        className={`grid gap-2 justify-center ${gridColumns[mode] || "grid-cols-6"}`}
+      >
+        {seats.map((seat) => (
+          <button
+            key={seat._id}
+            onClick={() => handleSeatSelect(seat)}
+            className={`p-2 text-sm font-medium border rounded-lg transition-all
+              ${
+                seat.isBooked
+                  ? "bg-red-400 text-white cursor-not-allowed"
+                  : selectedSeat?._id === seat._id
+                  ? "bg-green-500 text-white"
+                  : "bg-gray-100 hover:bg-blue-300"
+              }`}
+          >
+            {seat.seat_no}
+          </button>
+        ))}
+      </div>
+
+      {/* Selected Seat Display */}
+      {selectedSeat && (
+        <div className="mt-6 text-center">
+          <p className="text-lg font-medium">
+            ✅ Selected Seat:{" "}
+            <span className="font-bold text-green-600">
+              {selectedSeat.seat_no}
+            </span>
+          </p>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default SeatSelector;
+
