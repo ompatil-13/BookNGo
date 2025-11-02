@@ -5,9 +5,9 @@ const router = express.Router();
 
 // Seat configuration: count and columns per mode
 const seatConfig = {
-  Flight: { total: 120, columns: ["A", "B", "C", "D", "E", "F"] },
-  Bus: { total: 60, columns: ["A", "B", "C"] },
-  Train: { total: 200, columns: ["A", "B", "C", "D"] }
+  Flight: { total: 120, columns: ["A", "B", "C", "D", "E", "F"] }, // 20 rows × 6 columns = 120 seats (F1A to F20F)
+  Bus: { total: 36, columns: ["A", "B", "C", "D"] }, // 9 rows × 4 columns = 36 seats (B1A to B9D)
+  Train: { total: 170, columns: ["A", "B", "C", "D", "E"] } // 34 rows × 5 columns = 170 seats (T1A to T34E)
 };
 
 // Function to generate seats for a specific mode

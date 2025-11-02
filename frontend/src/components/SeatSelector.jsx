@@ -54,14 +54,12 @@ export default function SeatSelector({ mode_of_travel, onSeatSelect, selectedSea
 
   const rows = Object.keys(groupedSeats).sort((a, b) => a - b);
 
-  // Column configurations per mode
-  const columnConfig = {
-    Flight: ["A", "B", "C", "D", "E", "F"],
-    Bus: ["A", "B", "C"],
-    Train: ["A", "B", "C", "D"]
-  };
-
-  const expectedColumns = columnConfig[mode_of_travel] || [];
+  // Dynamically determine columns from backend data (extract unique column letters)
+  const expectedColumns = React.useMemo(() => {
+    if (seats.length === 0) return [];
+    const uniqueColumns = [...new Set(seats.map(seat => seat.column))].sort();
+    return uniqueColumns;
+  }, [seats]);
 
   if (loading) {
     return <div className="seat-selector-loading">Loading seats...</div>;
