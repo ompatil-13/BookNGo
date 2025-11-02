@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, getUser, getToken } from "../api";
+import SeatSelector from "../components/SeatSelector";
 
 export default function BookTicket() {
   const loggedUser = getUser();
@@ -7,6 +8,8 @@ export default function BookTicket() {
   const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [selectedSeat, setSelectedSeat] = useState("");
+  const [refreshSeats, setRefreshSeats] = useState(0);
   const [form, setForm] = useState({
     aadhaar_no: loggedUser?.aadhaar_no || "",
     mode_of_travel: "",
@@ -28,20 +31,52 @@ export default function BookTicket() {
     if (form.aadhaar_no) fetchProfile();
   }, [form.aadhaar_no]);
 
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  // Reset seat selection when mode of travel changes
+  useEffect(() => {
+    setSelectedSeat("");
+    setForm(prev => ({ ...prev, seat_no: "" }));
+  }, [form.mode_of_travel]);
+
+  const onChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSeatSelect = (seatNo) => {
+    setSelectedSeat(seatNo);
+    setForm({ ...form, seat_no: seatNo });
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     setMessage("");
     setError("");
+    
+    if (!form.seat_no) {
+      setError("Please select a seat");
+      return;
+    }
+
     try {
       const { data } = await api.post("/api/tickets/book", form, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage(`Ticket booked! ID: ${data.ticket_id}`);
+      // Reset form and refresh seat data
       setForm({ ...form, mode_of_travel: "", travel_from: "", travel_to: "", date: "", seat_no: "" });
+      setSelectedSeat("");
+      // Refresh seats by triggering SeatSelector refresh
+      setRefreshSeats(prev => prev + 1);
     } catch (err) {
-      setError(err.response?.data?.message || "Booking failed");
+      const errorMsg = err.response?.data?.message || "Booking failed";
+      setError(errorMsg);
+      // If seat was already booked, refresh seat data
+      if (err.response?.status === 409) {
+        setTimeout(() => {
+          setRefreshSeats(prev => prev + 1);
+          setSelectedSeat("");
+          setForm(prev => ({ ...prev, seat_no: "" }));
+        }, 1000);
+      }
     }
   };
 
@@ -83,8 +118,24 @@ export default function BookTicket() {
         <input name="travel_from" placeholder="From" value={form.travel_from} onChange={onChange} required />
         <input name="travel_to" placeholder="To" value={form.travel_to} onChange={onChange} required />
         <input type="date" name="date" value={form.date} onChange={onChange} required />
-        <input name="seat_no" placeholder="Seat No" value={form.seat_no} onChange={onChange} required />
-        <button className="btn" type="submit">Confirm Booking</button>
+        
+        {form.mode_of_travel && (
+          <SeatSelector
+            mode_of_travel={form.mode_of_travel}
+            onSeatSelect={handleSeatSelect}
+            selectedSeat={selectedSeat}
+            disabled={!form.travel_from || !form.travel_to || !form.date}
+            refreshTrigger={refreshSeats}
+          />
+        )}
+        
+        {!form.mode_of_travel && (
+          <p className="seat-hint">Please select a mode of travel to view available seats</p>
+        )}
+        
+        <button className="btn" type="submit" disabled={!form.seat_no}>
+          {form.seat_no ? `Book Seat ${form.seat_no}` : "Select a seat to continue"}
+        </button>
       </form>
     </div>
   );

@@ -11,5 +11,6 @@
 .profile-box { border: 1px solid #eee; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 label { display: block; font-weight: 600; margin-bottom: 6px; }
+.seat-hint { text-align: center; color: #666; font-style: italic; padding: 1rem; }
 @media (max-width: 640px){ .grid-2 { grid-template-columns: 1fr; } .container{ padding: 12px; } }
 
