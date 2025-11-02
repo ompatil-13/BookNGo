@@ -10,10 +10,8 @@ import seatRoutes from "./routes/seatRoutes.js";
 
 const app = express();
 
-//app.use(cors());
-const cors = require("cors");
 
-app.use(cors({
+//allow request from frontend on vercel 
   origin: ["https://your-frontend.vercel.app"],
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true
